@@ -17,7 +17,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {}
 }));
 
-// --- Auth API ---
+// --- Admin Auth API ---
 app.post('/api/login', (req, res) => {
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) {
@@ -25,6 +25,46 @@ app.post('/api/login', (req, res) => {
   } else {
     res.status(401).json({ error: 'Wrong password' });
   }
+});
+
+// --- Student Auth API ---
+app.post('/api/signup', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !username.trim() || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+  const data = loadData();
+  if (!data.users) data.users = [];
+  const trimmed = username.trim();
+  if (data.users.find(u => u.username.toLowerCase() === trimmed.toLowerCase())) {
+    return res.status(400).json({ error: 'Username already taken' });
+  }
+  data.users.push({ username: trimmed, password });
+  saveData(data);
+  res.json({ success: true, username: trimmed });
+});
+
+app.post('/api/student-login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+  const data = loadData();
+  if (!data.users) data.users = [];
+  const user = data.users.find(u =>
+    u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password
+  );
+  if (user) {
+    res.json({ success: true, username: user.username });
+  } else {
+    res.status(401).json({ error: 'Wrong username or password' });
+  }
+});
+
+// --- Get all students (for admin) ---
+app.get('/api/users', (req, res) => {
+  const data = loadData();
+  res.json((data.users || []).map(u => u.username));
 });
 
 // Default food menu organized by category
@@ -115,7 +155,7 @@ function loadData() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   } catch {
-    return { classes: [], menu: DEFAULT_MENU, orders: [], enabledCategories: null };
+    return { classes: [], menu: DEFAULT_MENU, orders: [], enabledCategories: null, users: [] };
   }
 }
 

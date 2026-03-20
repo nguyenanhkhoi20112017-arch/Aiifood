@@ -7,16 +7,65 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
+  <!-- Sign In / Sign Up Screen -->
+  <div class="container" id="authScreen">
     <h1>Aiicafe</h1>
+    <p class="subtitle">Sign in to order your lunch!</p>
+
+    <div class="login-box">
+      <!-- Toggle between Sign In and Sign Up -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="signinTab" onclick="showSignIn()">Sign In</button>
+        <button class="auth-tab" id="signupTab" onclick="showSignUp()">Sign Up</button>
+      </div>
+
+      <!-- Sign In Form -->
+      <div id="signinForm">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="signinUser" placeholder="Your username...">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="signinPass" placeholder="Your password...">
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="doSignIn()">Sign In</button>
+      </div>
+
+      <!-- Sign Up Form -->
+      <div id="signupForm" style="display:none;">
+        <div class="form-group">
+          <label>Choose a Username</label>
+          <input type="text" id="signupUser" placeholder="Pick a username...">
+        </div>
+        <div class="form-group">
+          <label>Choose a Password</label>
+          <input type="password" id="signupPass" placeholder="Pick a password...">
+        </div>
+        <div class="form-group">
+          <label>Confirm Password</label>
+          <input type="password" id="signupPass2" placeholder="Type password again...">
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="doSignUp()">Sign Up</button>
+      </div>
+
+      <p id="authError" class="auth-error" style="display:none;"></p>
+      <p id="authSuccess" class="auth-success" style="display:none;"></p>
+    </div>
+  </div>
+
+  <!-- Main Order Screen (hidden until login) -->
+  <div class="container" id="orderScreen" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>Aiicafe</h1>
+      <div style="text-align:right;">
+        <span style="color:#888; font-size:0.9em;">Hi, <strong id="welcomeName"></strong>!</span>
+        <button class="btn btn-sm" style="background:#eee; color:#999; margin-left:8px;" onclick="signOut()">Sign Out</button>
+      </div>
+    </div>
     <p class="subtitle">Pick your lunch today!</p>
 
     <div id="orderForm">
-      <div class="form-group">
-        <label>Your Name</label>
-        <input type="text" id="studentName" placeholder="Type your name...">
-      </div>
-
       <!-- Category tabs -->
       <div class="category-tabs" id="categoryTabs"></div>
 
@@ -44,14 +93,139 @@
       <h2>Order Placed!</h2>
       <p id="confirmMsg"></p>
       <div id="confirmItems"></div>
-      <button class="btn btn-primary" onclick="location.reload()" style="margin-top:15px;">Order for someone else</button>
+      <button class="btn btn-primary" onclick="newOrder()" style="margin-top:15px;">Done</button>
     </div>
   </div>
 
   <script>
     let selectedFoods = new Set();
     let activeCategory = 'all';
+    let currentUser = null;
 
+    // --- Auth ---
+    function showSignIn() {
+      document.getElementById('signinForm').style.display = 'block';
+      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('signinTab').classList.add('active');
+      document.getElementById('signupTab').classList.remove('active');
+      hideMessages();
+    }
+
+    function showSignUp() {
+      document.getElementById('signinForm').style.display = 'none';
+      document.getElementById('signupForm').style.display = 'block';
+      document.getElementById('signupTab').classList.add('active');
+      document.getElementById('signinTab').classList.remove('active');
+      hideMessages();
+    }
+
+    function hideMessages() {
+      document.getElementById('authError').style.display = 'none';
+      document.getElementById('authSuccess').style.display = 'none';
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('authError');
+      el.textContent = msg;
+      el.style.display = 'block';
+      document.getElementById('authSuccess').style.display = 'none';
+    }
+
+    function showSuccess(msg) {
+      const el = document.getElementById('authSuccess');
+      el.textContent = msg;
+      el.style.display = 'block';
+      document.getElementById('authError').style.display = 'none';
+    }
+
+    async function doSignUp() {
+      const username = document.getElementById('signupUser').value.trim();
+      const password = document.getElementById('signupPass').value;
+      const password2 = document.getElementById('signupPass2').value;
+
+      if (!username) return showError('Please pick a username!');
+      if (!password) return showError('Please pick a password!');
+      if (password !== password2) return showError('Passwords don\'t match!');
+
+      const res = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (res.ok) {
+        showSuccess('Account created! You can sign in now.');
+        setTimeout(() => {
+          showSignIn();
+          document.getElementById('signinUser').value = username;
+        }, 1000);
+      } else {
+        const data = await res.json();
+        showError(data.error || 'Something went wrong');
+      }
+    }
+
+    async function doSignIn() {
+      const username = document.getElementById('signinUser').value.trim();
+      const password = document.getElementById('signinPass').value;
+
+      if (!username) return showError('Please type your username!');
+      if (!password) return showError('Please type your password!');
+
+      const res = await fetch('/api/student-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        currentUser = data.username;
+        sessionStorage.setItem('aiifood_student', currentUser);
+        enterApp();
+      } else {
+        showError('Wrong username or password!');
+      }
+    }
+
+    function enterApp() {
+      document.getElementById('authScreen').style.display = 'none';
+      document.getElementById('orderScreen').style.display = 'block';
+      document.getElementById('welcomeName').textContent = currentUser;
+      loadMenu();
+    }
+
+    function signOut() {
+      sessionStorage.removeItem('aiifood_student');
+      currentUser = null;
+      location.reload();
+    }
+
+    function newOrder() {
+      document.getElementById('confirmOverlay').classList.remove('show');
+      selectedFoods.clear();
+      document.querySelectorAll('.food-card.selected').forEach(c => c.classList.remove('selected'));
+      updateSelectionBar();
+    }
+
+    // Check if already signed in
+    function checkLogin() {
+      const saved = sessionStorage.getItem('aiifood_student');
+      if (saved) {
+        currentUser = saved;
+        enterApp();
+      }
+    }
+
+    // Enter key support for sign in/up forms
+    document.getElementById('signinPass').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSignIn();
+    });
+    document.getElementById('signupPass2').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSignUp();
+    });
+
+    // --- Menu ---
     async function loadMenu() {
       const [menuRes, enabledRes] = await Promise.all([
         fetch('/api/menu'),
@@ -74,14 +248,14 @@
       const allTab = document.createElement('button');
       allTab.className = `cat-tab ${activeCategory === 'all' ? 'active' : ''}`;
       allTab.textContent = 'All';
-      allTab.onclick = () => switchCategory('all');
+      allTab.onclick = (e) => switchCategory('all', e.target);
       tabsContainer.appendChild(allTab);
 
       categories.forEach(cat => {
         const tab = document.createElement('button');
         tab.className = `cat-tab ${activeCategory === cat ? 'active' : ''}`;
         tab.textContent = cat;
-        tab.onclick = () => switchCategory(cat);
+        tab.onclick = (e) => switchCategory(cat, e.target);
         tabsContainer.appendChild(tab);
       });
 
@@ -118,12 +292,10 @@
       });
     }
 
-    function switchCategory(cat) {
+    function switchCategory(cat, btn) {
       activeCategory = cat;
-      // Update tabs
       document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
-      // Show/hide sections
+      btn.classList.add('active');
       document.querySelectorAll('.menu-section').forEach(sec => {
         if (cat === 'all' || sec.dataset.category === cat) {
           sec.style.display = '';
@@ -185,26 +357,24 @@
     }
 
     document.getElementById('submitBtn').addEventListener('click', async () => {
-      const studentName = document.getElementById('studentName').value.trim();
-
-      if (!studentName) return alert('Please type your name!');
+      if (!currentUser) return alert('Please sign in first!');
       if (selectedFoods.size === 0) return alert('Please pick at least one food!');
 
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentName, foods: [...selectedFoods] })
+        body: JSON.stringify({ studentName: currentUser, foods: [...selectedFoods] })
       });
 
       if (res.ok) {
-        document.getElementById('confirmMsg').textContent = studentName;
+        document.getElementById('confirmMsg').textContent = currentUser;
         document.getElementById('confirmItems').innerHTML =
           [...selectedFoods].map(f => `<span class="chip">${f}</span>`).join(' ');
         document.getElementById('confirmOverlay').classList.add('show');
       }
     });
 
-    loadMenu();
+    checkLogin();
   </script>
 </body>
 </html>
