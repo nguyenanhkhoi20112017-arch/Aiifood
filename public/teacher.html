@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aiicafe - Teacher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Teacher Dashboard</h1>
+    <p class="subtitle">View all lunch orders for today</p>
+    <div class="nav">
+      <a href="/">Student</a>
+      <a href="/admin.html">Admin</a>
+      <a href="/teacher.html" class="active">Teacher</a>
+    </div>
+
+    <!-- Summary -->
+    <div class="section">
+      <h2>Order Summary</h2>
+      <div class="summary-grid" id="summaryGrid"></div>
+    </div>
+
+    <!-- Food totals -->
+    <div class="section">
+      <h2>Food Totals</h2>
+      <div id="foodTotals" class="food-totals"></div>
+    </div>
+
+    <!-- Orders list -->
+    <div class="section">
+      <h2>Orders</h2>
+
+      <div id="noOrders" style="color:#999; text-align:center; padding:30px;">
+        No orders yet. Waiting for students...
+      </div>
+
+      <table class="orders-table" id="ordersTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Student</th>
+            <th>Foods Ordered</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="ordersBody"></tbody>
+      </table>
+    </div>
+
+    <div style="text-align:center; margin-top:15px;">
+      <button class="btn btn-primary" onclick="loadOrders()">Refresh</button>
+    </div>
+  </div>
+
+  <script>
+    let allOrders = [];
+
+    async function loadOrders() {
+      const res = await fetch('/api/orders');
+      allOrders = await res.json();
+      renderSummary();
+      renderFoodTotals();
+      renderOrders();
+    }
+
+    function renderSummary() {
+      const grid = document.getElementById('summaryGrid');
+      const totalItems = allOrders.reduce((sum, o) => sum + (o.foods || []).length, 0);
+
+      grid.innerHTML = `
+        <div class="summary-card">
+          <div class="count">${allOrders.length}</div>
+          <div class="label">Total Orders</div>
+        </div>
+        <div class="summary-card">
+          <div class="count">${totalItems}</div>
+          <div class="label">Total Items</div>
+        </div>`;
+    }
+
+    function renderFoodTotals() {
+      const container = document.getElementById('foodTotals');
+      const foodCounts = {};
+      allOrders.forEach(o => {
+        const foods = o.foods || [o.food];
+        foods.forEach(f => {
+          foodCounts[f] = (foodCounts[f] || 0) + 1;
+        });
+      });
+
+      if (Object.keys(foodCounts).length === 0) {
+        container.innerHTML = '<p style="color:#999;">No food orders yet.</p>';
+        return;
+      }
+
+      const sorted = Object.entries(foodCounts).sort((a, b) => b[1] - a[1]);
+      container.innerHTML = sorted.map(([food, count]) =>
+        `<div class="food-total-row">
+          <span class="food-total-name">${food}</span>
+          <span class="food-total-bar"><span class="food-total-fill" style="width:${(count / allOrders.length) * 100}%"></span></span>
+          <span class="food-total-count">${count}</span>
+        </div>`
+      ).join('');
+    }
+
+    function renderOrders() {
+      const noOrders = document.getElementById('noOrders');
+      const table = document.getElementById('ordersTable');
+      const body = document.getElementById('ordersBody');
+
+      if (allOrders.length === 0) {
+        noOrders.style.display = 'block';
+        table.style.display = 'none';
+        return;
+      }
+
+      noOrders.style.display = 'none';
+      table.style.display = 'table';
+
+      body.innerHTML = '';
+      allOrders.forEach((o, i) => {
+        const foods = o.foods || [o.food];
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${i + 1}</td>
+          <td><strong>${o.studentName}</strong></td>
+          <td>${foods.map(f => `<span class="chip chip-small">${f}</span>`).join(' ')}</td>
+          <td>${o.time}</td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    // Auto-refresh every 10 seconds
+    loadOrders();
+    setInterval(loadOrders, 10000);
+  </script>
+</body>
+</html>

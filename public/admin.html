@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aiicafe - Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Panel</h1>
+    <p class="subtitle">Manage menu & today's categories</p>
+    <div class="nav">
+      <a href="/">Student</a>
+      <a href="/admin.html" class="active">Admin</a>
+      <a href="/teacher.html">Teacher</a>
+    </div>
+
+    <!-- Today's Categories -->
+    <div class="section">
+      <h2>Today's Menu Sections</h2>
+      <p style="color:#888; font-size:0.9em; margin-bottom:12px;">
+        Toggle which food sections students can see today.
+      </p>
+      <div id="categoryToggles" class="toggle-grid"></div>
+    </div>
+
+    <!-- Full Menu Editor -->
+    <div class="section">
+      <h2>All Food Items</h2>
+      <p style="color:#888; font-size:0.9em; margin-bottom:12px;">
+        Add or remove items from each category. These are saved permanently.
+      </p>
+      <div class="add-row">
+        <input type="text" id="newCatInput" placeholder="New category name...">
+        <button class="btn btn-primary" onclick="addCategory()">Add Category</button>
+      </div>
+      <div id="menuEditor"></div>
+    </div>
+
+    <!-- Reset Orders -->
+    <div class="section">
+      <h2>Reset Orders</h2>
+      <p style="color:#888; font-size:0.9em; margin-bottom:12px;">
+        Clear all orders to start a new day.
+      </p>
+      <button class="btn btn-danger" onclick="resetOrders()">Reset All Orders</button>
+    </div>
+  </div>
+
+  <script>
+    let enabledCategories = [];
+
+    // --- Classes ---
+    async function loadClasses() {
+      const res = await fetch('/api/classes');
+      const classes = await res.json();
+      const list = document.getElementById('classList');
+      list.innerHTML = '';
+      classes.forEach(c => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.innerHTML = `${c} <span class="remove" onclick="removeClass('${c.replace(/'/g, "\\'")}')">&times;</span>`;
+        list.appendChild(chip);
+      });
+    }
+
+    async function addClass() {
+      const input = document.getElementById('classInput');
+      const name = input.value.trim();
+      if (!name) return;
+      await fetch('/api/classes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      input.value = '';
+      loadClasses();
+    }
+
+    async function removeClass(name) {
+      await fetch('/api/classes/' + encodeURIComponent(name), { method: 'DELETE' });
+      loadClasses();
+    }
+
+    document.getElementById('classInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addClass();
+    });
+
+    // --- Category Toggles ---
+    async function loadCategoryToggles() {
+      const [menuRes, enabledRes] = await Promise.all([
+        fetch('/api/menu'),
+        fetch('/api/enabled-categories')
+      ]);
+      const menu = await menuRes.json();
+      enabledCategories = await enabledRes.json();
+      const container = document.getElementById('categoryToggles');
+      container.innerHTML = '';
+
+      Object.keys(menu).forEach(cat => {
+        const count = menu[cat].length;
+        const isOn = enabledCategories.includes(cat);
+        const div = document.createElement('div');
+        div.className = `toggle-card ${isOn ? 'on' : 'off'}`;
+        div.onclick = () => toggleCategory(cat);
+        div.innerHTML = `
+          <div class="toggle-name">${cat}</div>
+          <div class="toggle-count">${count} items</div>
+          <div class="toggle-status">${isOn ? 'ON' : 'OFF'}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function toggleCategory(cat) {
+      if (enabledCategories.includes(cat)) {
+        enabledCategories = enabledCategories.filter(c => c !== cat);
+      } else {
+        enabledCategories.push(cat);
+      }
+      await fetch('/api/enabled-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: enabledCategories })
+      });
+      loadCategoryToggles();
+    }
+
+    // --- Menu Editor ---
+    async function loadMenuEditor() {
+      const res = await fetch('/api/menu');
+      const menu = await res.json();
+      const container = document.getElementById('menuEditor');
+      container.innerHTML = '';
+
+      Object.keys(menu).forEach(cat => {
+        const sec = document.createElement('div');
+        sec.className = 'editor-category';
+        sec.innerHTML = `
+          <div class="editor-cat-header">
+            <h3>${cat}</h3>
+            <button class="btn btn-danger btn-sm" onclick="deleteCategory('${cat.replace(/'/g, "\\'")}')">Delete Category</button>
+          </div>
+          <div class="add-row">
+            <input type="text" placeholder="Add food to ${cat}..." id="food-${cat.replace(/[^a-zA-Z0-9]/g, '_')}">
+            <button class="btn btn-success btn-sm" onclick="addFood('${cat.replace(/'/g, "\\'")}')">Add</button>
+          </div>
+        `;
+        const list = document.createElement('div');
+        list.className = 'editor-items';
+        menu[cat].forEach((item, i) => {
+          const div = document.createElement('div');
+          div.className = 'editor-item';
+          div.innerHTML = `
+            <span class="editor-emoji">${item.emoji}</span>
+            <span class="editor-name">${item.name}</span>
+            <button class="btn btn-danger btn-sm" onclick="removeFood('${cat.replace(/'/g, "\\'")}', ${i})">X</button>
+          `;
+          list.appendChild(div);
+        });
+        sec.appendChild(list);
+        container.appendChild(sec);
+      });
+    }
+
+    async function addFood(category) {
+      const inputId = 'food-' + category.replace(/[^a-zA-Z0-9]/g, '_');
+      const input = document.getElementById(inputId);
+      const name = input.value.trim();
+      if (!name) return;
+      await fetch('/api/menu/' + encodeURIComponent(category), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      input.value = '';
+      loadMenuEditor();
+      loadCategoryToggles();
+    }
+
+    async function removeFood(category, index) {
+      await fetch('/api/menu/' + encodeURIComponent(category) + '/' + index, { method: 'DELETE' });
+      loadMenuEditor();
+      loadCategoryToggles();
+    }
+
+    async function addCategory() {
+      const input = document.getElementById('newCatInput');
+      const name = input.value.trim();
+      if (!name) return;
+      await fetch('/api/category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      input.value = '';
+      loadMenuEditor();
+      loadCategoryToggles();
+    }
+
+    async function deleteCategory(name) {
+      if (!confirm(`Delete the entire "${name}" category and all its items?`)) return;
+      await fetch('/api/category/' + encodeURIComponent(name), { method: 'DELETE' });
+      loadMenuEditor();
+      loadCategoryToggles();
+    }
+
+    document.getElementById('newCatInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addCategory();
+    });
+
+    async function resetOrders() {
+      if (!confirm('Are you sure? This will delete all orders for today.')) return;
+      await fetch('/api/reset', { method: 'POST' });
+      alert('All orders have been reset!');
+    }
+
+    loadClasses();
+    loadCategoryToggles();
+    loadMenuEditor();
+  </script>
+</body>
+</html>
