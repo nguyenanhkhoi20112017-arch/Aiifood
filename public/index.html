@@ -85,11 +85,10 @@
       </button>
     </div>
 
-    <!-- Admin button visible to everyone -->
-    <div style="text-align:center; margin-top:20px; padding-top:15px; border-top:1px solid #eee;">
-      <button class="btn btn-sm" style="background:#f0f0f0; color:#999;" onclick="showAdminPrompt()">Admin / Teacher</button>
-    </div>
   </div>
+
+  <!-- Floating admin button - always visible -->
+  <button class="floating-admin-btn" onclick="showAdminPrompt()" title="Admin / Teacher">&#9881;</button>
 
   <!-- Admin password popup -->
   <div class="overlay" id="adminPrompt">
