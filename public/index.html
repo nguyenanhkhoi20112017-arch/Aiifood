@@ -84,6 +84,25 @@
         Pick your food first!
       </button>
     </div>
+
+    <!-- Admin button visible to everyone -->
+    <div style="text-align:center; margin-top:20px; padding-top:15px; border-top:1px solid #eee;">
+      <button class="btn btn-sm" style="background:#f0f0f0; color:#999;" onclick="showAdminPrompt()">Admin / Teacher</button>
+    </div>
+  </div>
+
+  <!-- Admin password popup -->
+  <div class="overlay" id="adminPrompt">
+    <div class="overlay-content">
+      <h2>Enter Admin Password</h2>
+      <p style="color:#888; margin-bottom:15px;">Only authorized users can access this.</p>
+      <input type="password" id="adminPassInput" placeholder="Password..." style="text-align:center; margin-bottom:12px;">
+      <p id="adminPassError" style="color:#ff6b6b; display:none; margin-bottom:10px;">Wrong password!</p>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button class="btn btn-primary" onclick="checkAdminPass()">Unlock</button>
+        <button class="btn btn-sm" style="background:#eee; color:#666;" onclick="closeAdminPrompt()">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <!-- Confirmation overlay -->
@@ -372,6 +391,37 @@
           [...selectedFoods].map(f => `<span class="chip">${f}</span>`).join(' ');
         document.getElementById('confirmOverlay').classList.add('show');
       }
+    });
+
+    // --- Admin prompt ---
+    function showAdminPrompt() {
+      document.getElementById('adminPrompt').classList.add('show');
+      document.getElementById('adminPassInput').value = '';
+      document.getElementById('adminPassError').style.display = 'none';
+      document.getElementById('adminPassInput').focus();
+    }
+
+    function closeAdminPrompt() {
+      document.getElementById('adminPrompt').classList.remove('show');
+    }
+
+    async function checkAdminPass() {
+      const pw = document.getElementById('adminPassInput').value;
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      if (res.ok) {
+        sessionStorage.setItem('aiifood_auth', 'true');
+        window.location.href = '/admin.html';
+      } else {
+        document.getElementById('adminPassError').style.display = 'block';
+      }
+    }
+
+    document.getElementById('adminPassInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkAdminPass();
     });
 
     checkLogin();
