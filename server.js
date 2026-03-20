@@ -7,7 +7,25 @@ const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Password for admin & teacher pages
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '2444666668888888';
+
+// Serve static files, but block admin.html and teacher.html (they need password)
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: 'index.html',
+  setHeaders: (res, filePath) => {}
+}));
+
+// --- Auth API ---
+app.post('/api/login', (req, res) => {
+  const { password } = req.body;
+  if (password === ADMIN_PASSWORD) {
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ error: 'Wrong password' });
+  }
+});
 
 // Default food menu organized by category
 const DEFAULT_MENU = {

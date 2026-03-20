@@ -487,6 +487,22 @@ input:focus, select:focus {
   to { transform: scale(1); opacity: 1; }
 }
 
+/* Login box */
+.login-box {
+  max-width: 350px;
+  margin: 30px auto;
+  padding: 30px;
+  background: #f8f9ff;
+  border-radius: 16px;
+  border: 2px solid #e0e0e0;
+}
+
+.login-box input {
+  text-align: center;
+  font-size: 1.1em;
+  letter-spacing: 2px;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   body { padding: 10px; }

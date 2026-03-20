@@ -7,7 +7,19 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
+  <!-- Password Lock Screen -->
+  <div class="container" id="loginScreen">
+    <h1>Teacher Dashboard</h1>
+    <p class="subtitle">Enter password to continue</p>
+    <div class="login-box">
+      <input type="password" id="passwordInput" placeholder="Enter password...">
+      <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="tryLogin()">Unlock</button>
+      <p id="loginError" style="color:#ff6b6b; text-align:center; margin-top:10px; display:none;">Wrong password!</p>
+    </div>
+  </div>
+
+  <!-- Teacher Content (hidden until login) -->
+  <div class="container" id="teacherContent" style="display:none;">
     <h1>Teacher Dashboard</h1>
     <p class="subtitle">View all lunch orders for today</p>
     <div class="nav">
@@ -51,10 +63,50 @@
 
     <div style="text-align:center; margin-top:15px;">
       <button class="btn btn-primary" onclick="loadOrders()">Refresh</button>
+      <button class="btn btn-sm" style="background:#eee; color:#999; margin-left:10px;" onclick="logout()">Log Out</button>
     </div>
   </div>
 
   <script>
+    // --- Login ---
+    function checkLogin() {
+      if (sessionStorage.getItem('aiifood_auth') === 'true') {
+        showTeacher();
+      }
+    }
+
+    async function tryLogin() {
+      const pw = document.getElementById('passwordInput').value;
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      if (res.ok) {
+        sessionStorage.setItem('aiifood_auth', 'true');
+        showTeacher();
+      } else {
+        document.getElementById('loginError').style.display = 'block';
+      }
+    }
+
+    function showTeacher() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('teacherContent').style.display = 'block';
+      loadOrders();
+      setInterval(loadOrders, 10000);
+    }
+
+    function logout() {
+      sessionStorage.removeItem('aiifood_auth');
+      location.reload();
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') tryLogin();
+    });
+
+    // --- Orders ---
     let allOrders = [];
 
     async function loadOrders() {
@@ -133,9 +185,8 @@
       });
     }
 
-    // Auto-refresh every 10 seconds
-    loadOrders();
-    setInterval(loadOrders, 10000);
+    // Check if already logged in
+    checkLogin();
   </script>
 </body>
 </html>

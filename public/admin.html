@@ -7,7 +7,19 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
+  <!-- Password Lock Screen -->
+  <div class="container" id="loginScreen">
+    <h1>Admin Panel</h1>
+    <p class="subtitle">Enter password to continue</p>
+    <div class="login-box">
+      <input type="password" id="passwordInput" placeholder="Enter password...">
+      <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="tryLogin()">Unlock</button>
+      <p id="loginError" style="color:#ff6b6b; text-align:center; margin-top:10px; display:none;">Wrong password!</p>
+    </div>
+  </div>
+
+  <!-- Admin Content (hidden until login) -->
+  <div class="container" id="adminContent" style="display:none;">
     <h1>Admin Panel</h1>
     <p class="subtitle">Manage menu & today's categories</p>
     <div class="nav">
@@ -46,48 +58,54 @@
       </p>
       <button class="btn btn-danger" onclick="resetOrders()">Reset All Orders</button>
     </div>
+
+    <div style="text-align:center; margin-top:10px;">
+      <button class="btn btn-sm" style="background:#eee; color:#999;" onclick="logout()">Log Out</button>
+    </div>
   </div>
 
   <script>
-    let enabledCategories = [];
-
-    // --- Classes ---
-    async function loadClasses() {
-      const res = await fetch('/api/classes');
-      const classes = await res.json();
-      const list = document.getElementById('classList');
-      list.innerHTML = '';
-      classes.forEach(c => {
-        const chip = document.createElement('span');
-        chip.className = 'chip';
-        chip.innerHTML = `${c} <span class="remove" onclick="removeClass('${c.replace(/'/g, "\\'")}')">&times;</span>`;
-        list.appendChild(chip);
-      });
+    // --- Login ---
+    function checkLogin() {
+      if (sessionStorage.getItem('aiifood_auth') === 'true') {
+        showAdmin();
+      }
     }
 
-    async function addClass() {
-      const input = document.getElementById('classInput');
-      const name = input.value.trim();
-      if (!name) return;
-      await fetch('/api/classes', {
+    async function tryLogin() {
+      const pw = document.getElementById('passwordInput').value;
+      const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ password: pw })
       });
-      input.value = '';
-      loadClasses();
+      if (res.ok) {
+        sessionStorage.setItem('aiifood_auth', 'true');
+        showAdmin();
+      } else {
+        document.getElementById('loginError').style.display = 'block';
+      }
     }
 
-    async function removeClass(name) {
-      await fetch('/api/classes/' + encodeURIComponent(name), { method: 'DELETE' });
-      loadClasses();
+    function showAdmin() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('adminContent').style.display = 'block';
+      loadCategoryToggles();
+      loadMenuEditor();
     }
 
-    document.getElementById('classInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') addClass();
+    function logout() {
+      sessionStorage.removeItem('aiifood_auth');
+      location.reload();
+    }
+
+    document.getElementById('passwordInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') tryLogin();
     });
 
     // --- Category Toggles ---
+    let enabledCategories = [];
+
     async function loadCategoryToggles() {
       const [menuRes, enabledRes] = await Promise.all([
         fetch('/api/menu'),
@@ -216,9 +234,8 @@
       alert('All orders have been reset!');
     }
 
-    loadClasses();
-    loadCategoryToggles();
-    loadMenuEditor();
+    // Check if already logged in
+    checkLogin();
   </script>
 </body>
 </html>
